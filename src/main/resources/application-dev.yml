@@ -1,0 +1,8 @@
+spring:
+  flyway:
+    # Además del esquema, carga los datos semilla (solo desarrollo y pruebas).
+    locations: classpath:db/migration,classpath:db/seed
+
+emprendetech:
+  seguridad:
+    jwt-secret: ${JWT_SECRET:dev-only-secret-emprendetech-catalogo-0123456789}

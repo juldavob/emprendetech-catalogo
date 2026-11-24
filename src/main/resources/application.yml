@@ -1,0 +1,32 @@
+spring:
+  application:
+    name: emprendetech
+  profiles:
+    # En el MVP se arranca en "dev" por defecto (datos semilla + tokens de demostración).
+    # En producción: SPRING_PROFILES_ACTIVE=prod y JWT_SECRET obligatorio.
+    default: dev
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/emprendetech}
+    username: ${DB_USER:emprendetech}
+    password: ${DB_PASSWORD:emprendetech}
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: none        # el esquema lo gestiona Flyway
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+
+emprendetech:
+  seguridad:
+    jwt-secret: ${JWT_SECRET:}      # mínimo 32 caracteres (HS256)
+  catalogo:
+    cache:
+      ttl-segundos: 60
+      max-entradas: 1000

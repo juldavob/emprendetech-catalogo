@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>EmprendeTech · Catálogo (MVP)</title>
+<style>
+  :root { --verde:#0f766e; --verde-osc:#115e59; --gris:#f3f4f6; --borde:#d1d5db; --texto:#111827; --suave:#6b7280; --rojo:#b91c1c; }
+  * { box-sizing: border-box; }
+  body { margin:0; font-family: system-ui, -apple-system, "Segoe UI", Arial, sans-serif; color:var(--texto); background:var(--gris); }
+  header { background:var(--verde); color:#fff; padding:14px 20px; display:flex; flex-wrap:wrap; gap:12px; align-items:center; justify-content:space-between; }
+  header h1 { margin:0; font-size:1.2rem; }
+  header small { opacity:.85; display:block; font-weight:400; }
+  .sesion { display:flex; gap:8px; align-items:center; font-size:.9rem; }
+  .sesion select { padding:6px; border-radius:6px; border:0; max-width:260px; }
+  main { max-width:1100px; margin:18px auto; padding:0 14px; display:grid; gap:16px; }
+  section { background:#fff; border:1px solid var(--borde); border-radius:10px; padding:16px; }
+  h2 { margin:0 0 12px; font-size:1.05rem; }
+  .filtros { display:grid; grid-template-columns:repeat(auto-fit,minmax(170px,1fr)); gap:10px; align-items:end; }
+  label { display:flex; flex-direction:column; gap:4px; font-size:.8rem; color:var(--suave); }
+  input, select, textarea { padding:8px; border:1px solid var(--borde); border-radius:6px; font:inherit; color:var(--texto); background:#fff; }
+  textarea { resize:vertical; min-height:60px; }
+  button { padding:8px 14px; border:0; border-radius:6px; background:var(--verde); color:#fff; font:inherit; cursor:pointer; }
+  button:hover { background:var(--verde-osc); }
+  button.sec { background:#fff; color:var(--texto); border:1px solid var(--borde); }
+  button.peligro { background:var(--rojo); }
+  button:disabled { opacity:.5; cursor:default; }
+  .resultados { display:grid; grid-template-columns:repeat(auto-fill,minmax(250px,1fr)); gap:12px; margin-top:14px; }
+  .tarjeta { border:1px solid var(--borde); border-radius:10px; padding:12px; display:flex; flex-direction:column; gap:6px; }
+  .tarjeta h3 { margin:0; font-size:1rem; }
+  .tarjeta p { margin:0; color:var(--suave); font-size:.88rem; }
+  .precio { font-weight:700; font-size:1.1rem; color:var(--verde-osc); }
+  .etiqueta { display:inline-block; font-size:.72rem; padding:2px 8px; border-radius:999px; background:#ccfbf1; color:var(--verde-osc); }
+  .agotado { background:#fee2e2; color:var(--rojo); }
+  .acciones { display:flex; gap:6px; flex-wrap:wrap; margin-top:auto; padding-top:6px; }
+  .paginacion { display:flex; gap:10px; align-items:center; justify-content:center; margin-top:14px; }
+  .form-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:10px; }
+  .ancho { grid-column:1/-1; }
+  .barra { display:flex; gap:8px; flex-wrap:wrap; margin-top:10px; }
+  .meta { color:var(--suave); font-size:.85rem; margin-top:10px; }
+  #aviso { position:fixed; right:16px; bottom:16px; max-width:360px; padding:12px 14px; border-radius:8px; color:#fff; display:none; box-shadow:0 4px 14px rgba(0,0,0,.25); z-index:10; }
+  #aviso.ok { background:var(--verde); } #aviso.error { background:var(--rojo); }
+  .oculto { display:none; }
+</style>
+</head>
+<body>
+<header>
+  <h1>EmprendeTech · Catálogo <small>MVP – módulo Catálogo (RF2 y RF3)</small></h1>
+  <div class="sesion">
+    <label style="color:#fff;flex-direction:row;align-items:center;gap:8px">Sesión de demostración
+      <select id="sesion"><option value="">Visitante (sin sesión)</option></select>
+    </label>
+  </div>
+</header>
+
+<main>
+  <!-- RF3: búsqueda y filtros -->
+  <section>
+    <h2>Buscar productos</h2>
+    <form id="formBusqueda" class="filtros">
+      <label>Texto <input id="fTexto" placeholder="miel, café, mochila…"></label>
+      <label>Localidad <select id="fLocalidad"><option value="">Todas</option></select></label>
+      <label>Categoría <select id="fCategoria"><option value="">Todas</option></select></label>
+      <label>Precio mínimo (COP) <input id="fMin" type="number" min="0" step="500"></label>
+      <label>Precio máximo (COP) <input id="fMax" type="number" min="0" step="500"></label>
+      <label>Ordenar por
+        <select id="fOrden">
+          <option value="">Automático</option>
+          <option value="RELEVANCIA">Relevancia</option>
+          <option value="RECIENTES">Más recientes</option>
+          <option value="PRECIO_ASC">Precio: menor a mayor</option>
+          <option value="PRECIO_DESC">Precio: mayor a menor</option>
+        </select>
+      </label>
+      <div class="barra" style="margin:0"><button type="submit">Buscar</button><button type="button" class="sec" id="limpiar">Limpiar</button></div>
+    </form>
+    <div class="meta" id="resumen"></div>
+    <div class="resultados" id="resultados"></div>
+    <div class="paginacion"><button class="sec" id="anterior">‹ Anterior</button><span id="paginaInfo"></span><button class="sec" id="siguiente">Siguiente ›</button></div>
+  </section>
+
+  <!-- RF2: panel del emprendedor -->
+  <section id="panelEmprendedor" class="oculto">
+    <h2>Mi tienda</h2>
+    <div id="miTienda" class="meta"></div>
+
+    <form id="formTienda" class="form-grid oculto">
+      <label class="ancho">Nombre de la tienda <input id="tNombre" required maxlength="120"></label>
+      <label class="ancho">Descripción <textarea id="tDescripcion" maxlength="500"></textarea></label>
+      <label>Localidad <select id="tLocalidad" required></select></label>
+      <div class="barra"><button type="submit">Crear mi tienda</button></div>
+    </form>
+
+    <form id="formProducto" class="form-grid oculto">
+      <h2 class="ancho" id="tituloProducto" style="margin:8px 0 0">Publicar producto</h2>
+      <label class="ancho">Nombre <input id="pNombre" required maxlength="120"></label>
+      <label class="ancho">Descripción <textarea id="pDescripcion" maxlength="2000"></textarea></label>
+      <label>Categoría <select id="pCategoria" required></select></label>
+      <label>Precio (COP) <input id="pPrecio" type="number" min="1" step="0.01" required></label>
+      <label>Stock <input id="pStock" type="number" min="0" step="1" required></label>
+      <div class="barra ancho"><button type="submit" id="guardarProducto">Publicar</button><button type="button" class="sec oculto" id="cancelarEdicion">Cancelar edición</button></div>
+    </form>
+  </section>
+
+  <!-- Moderación -->
+  <section id="panelAdmin" class="oculto">
+    <h2>Moderación (administrador)</h2>
+    <form id="formModeracion" class="form-grid">
+      <label>ID del producto <input id="mId" required placeholder="uuid" pattern="[0-9a-fA-F-]{36}"></label>
+      <label>Acción <select id="mAccion"><option value="OCULTAR">Ocultar</option><option value="RESTAURAR">Restaurar</option></select></label>
+      <label class="ancho">Motivo (obligatorio al ocultar) <input id="mMotivo" maxlength="300"></label>
+      <div class="barra ancho"><button type="submit">Aplicar</button></div>
+    </form>
+    <p class="meta">Con «Moderar» en una tarjeta se rellena el ID. Un producto oculto no aparece en la búsqueda; para restaurarlo
+      use su ID (en los datos semilla: <code>b0000000-0000-4000-8000-000000000014</code>).</p>
+  </section>
+</main>
+
+<div id="aviso" role="status"></div>
+
+<script>
+const API = '/api/v1/catalogo';
+const LOCALIDADES = {USAQUEN:'Usaquén',CHAPINERO:'Chapinero',SANTA_FE:'Santa Fe',SAN_CRISTOBAL:'San Cristóbal',USME:'Usme',TUNJUELITO:'Tunjuelito',BOSA:'Bosa',KENNEDY:'Kennedy',FONTIBON:'Fontibón',ENGATIVA:'Engativá',SUBA:'Suba',BARRIOS_UNIDOS:'Barrios Unidos',TEUSAQUILLO:'Teusaquillo',LOS_MARTIRES:'Los Mártires',ANTONIO_NARINO:'Antonio Nariño',PUENTE_ARANDA:'Puente Aranda',LA_CANDELARIA:'La Candelaria',RAFAEL_URIBE_URIBE:'Rafael Uribe Uribe',CIUDAD_BOLIVAR:'Ciudad Bolívar',SUMAPAZ:'Sumapaz'};
+const CATEGORIAS = {ARTESANIAS:'Artesanías',ALIMENTOS:'Alimentos',BEBIDAS:'Bebidas',MODA:'Moda',HOGAR:'Hogar',BELLEZA:'Belleza',TECNOLOGIA:'Tecnología',MASCOTAS:'Mascotas',OTROS:'Otros'};
+const COP = new Intl.NumberFormat('es-CO', {style:'currency', currency:'COP', maximumFractionDigits:0});
+
+const $ = id => document.getElementById(id);
+const estado = { token:null, rol:null, tiendaId:null, pagina:0, tamano:12, totalPaginas:0, editando:null };
+
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+function aviso(texto, tipo='ok') {
+  const a = $('aviso'); a.textContent = texto; a.className = tipo; a.style.display = 'block';
+  clearTimeout(aviso.t); aviso.t = setTimeout(() => a.style.display = 'none', 4500);
+}
+function llenar(select, mapa, primera) {
+  select.innerHTML = (primera ? `<option value="">${primera}</option>` : '') +
+    Object.entries(mapa).map(([k,v]) => `<option value="${k}">${v}</option>`).join('');
+}
+
+async function api(metodo, ruta, cuerpo) {
+  const cab = {};
+  if (cuerpo !== undefined) cab['Content-Type'] = 'application/json';
+  if (estado.token) cab['Authorization'] = 'Bearer ' + estado.token;
+  const r = await fetch(API + ruta, {method:metodo, headers:cab, body: cuerpo !== undefined ? JSON.stringify(cuerpo) : undefined});
+  if (r.status === 204) return null;
+  let datos = null; try { datos = await r.json(); } catch (_) {}
+  if (!r.ok) {
+    const msg = r.status === 401 ? 'Necesita iniciar sesión.' : r.status === 403 ? (datos?.detail || 'No tiene permiso para esta acción.') : (datos?.detail || 'Error ' + r.status);
+    const e = new Error(msg); e.status = r.status; throw e;
+  }
+  return datos;
+}
+
+// ---------------------------------------------------------------- sesión de demostración
+async function cargarSesiones() {
+  try {
+    const r = await fetch('/dev/tokens');
+    if (!r.ok) throw new Error();
+    const lista = await r.json();
+    $('sesion').innerHTML = '<option value="">Visitante (sin sesión)</option>' +
+      lista.map((t,i) => `<option value="${i}">${esc(t.etiqueta)}</option>`).join('');
+    $('sesion').dataset.lista = JSON.stringify(lista);
+  } catch (_) {
+    $('sesion').title = 'Los tokens de demostración solo existen en el perfil dev.';
+  }
+}
+$('sesion').addEventListener('change', async e => {
+  const lista = JSON.parse($('sesion').dataset.lista || '[]');
+  const t = e.target.value === '' ? null : lista[Number(e.target.value)];
+  estado.token = t ? t.token : null; estado.rol = t ? t.rol : null; estado.tiendaId = null;
+  cancelarEdicion();
+  $('panelEmprendedor').classList.toggle('oculto', estado.rol !== 'EMPRENDEDOR');
+  $('panelAdmin').classList.toggle('oculto', estado.rol !== 'ADMIN');
+  if (estado.rol === 'EMPRENDEDOR') await cargarMiTienda();
+  renderResultados(ultima);
+});
+
+// ---------------------------------------------------------------- RF3: búsqueda
+let ultima = null;
+async function buscar(pagina = 0) {
+  const p = new URLSearchParams();
+  const add = (k, v) => { if (v !== '' && v != null) p.set(k, v); };
+  add('q', $('fTexto').value.trim()); add('localidad', $('fLocalidad').value); add('categoria', $('fCategoria').value);
+  add('precioMin', $('fMin').value); add('precioMax', $('fMax').value); add('orden', $('fOrden').value);
+  p.set('pagina', pagina); p.set('tamano', estado.tamano);
+  try {
+    ultima = await api('GET', '/productos?' + p.toString());
+    estado.pagina = ultima.pagina; estado.totalPaginas = ultima.totalPaginas;
+    renderResultados(ultima);
+  } catch (e) { aviso(e.message, 'error'); }
+}
+function renderResultados(r) {
+  if (!r) return;
+  $('resumen').textContent = r.total === 0 ? 'No se encontraron productos.' : `${r.total} producto(s) encontrado(s).`;
+  $('resultados').innerHTML = r.contenido.map(p => {
+    const propio = estado.rol === 'EMPRENDEDOR' && estado.tiendaId && p.tiendaId === estado.tiendaId;
+    return `<article class="tarjeta">
+      <span class="etiqueta">${esc(CATEGORIAS[p.categoria] || p.categoria)}</span>
+      <h3>${esc(p.nombre)}</h3>
+      <p>${esc(p.descripcion || '')}</p>
+      <div class="precio">${COP.format(p.precio)}</div>
+      <span class="etiqueta ${p.stock === 0 ? 'agotado' : ''}">${p.stock === 0 ? 'Agotado' : 'Stock: ' + p.stock}</span>
+      <div class="acciones">
+        ${propio ? `<button class="sec" data-editar="${p.id}">Editar</button><button class="peligro" data-borrar="${p.id}">Eliminar</button>` : ''}
+        ${estado.rol === 'ADMIN' ? `<button class="sec" data-moderar="${p.id}">Moderar</button>` : ''}
+      </div></article>`;
+  }).join('');
+  $('paginaInfo').textContent = r.totalPaginas ? `Página ${r.pagina + 1} de ${r.totalPaginas}` : '';
+  $('anterior').disabled = r.pagina <= 0; $('siguiente').disabled = r.pagina + 1 >= r.totalPaginas;
+}
+$('formBusqueda').addEventListener('submit', e => { e.preventDefault(); buscar(0); });
+$('limpiar').addEventListener('click', () => { $('formBusqueda').reset(); buscar(0); });
+$('anterior').addEventListener('click', () => buscar(estado.pagina - 1));
+$('siguiente').addEventListener('click', () => buscar(estado.pagina + 1));
+
+$('resultados').addEventListener('click', async e => {
+  const b = e.target.closest('button'); if (!b) return;
+  const p = id => ultima.contenido.find(x => x.id === id);
+  if (b.dataset.editar) iniciarEdicion(p(b.dataset.editar));
+  if (b.dataset.moderar) { $('mId').value = b.dataset.moderar; $('mMotivo').focus(); $('panelAdmin').scrollIntoView({behavior:'smooth'}); }
+  if (b.dataset.borrar && confirm('¿Eliminar este producto definitivamente?')) {
+    try { await api('DELETE', '/productos/' + b.dataset.borrar); aviso('Producto eliminado'); buscar(estado.pagina); }
+    catch (err) { aviso(err.message, 'error'); }
+  }
+});
+
+// ---------------------------------------------------------------- RF2: tienda y productos del emprendedor
+async function cargarMiTienda() {
+  try {
+    const t = await api('GET', '/tiendas/mia');
+    estado.tiendaId = t.id;
+    $('miTienda').innerHTML = `<strong>${esc(t.nombre)}</strong> · ${esc(LOCALIDADES[t.localidad] || t.localidad)}${t.descripcion ? ' · ' + esc(t.descripcion) : ''}`;
+    $('formTienda').classList.add('oculto'); $('formProducto').classList.remove('oculto');
+  } catch (e) {
+    if (e.status === 404) {
+      $('miTienda').textContent = 'Aún no tiene tienda. Créela para publicar productos.';
+      $('formTienda').classList.remove('oculto'); $('formProducto').classList.add('oculto');
+    } else aviso(e.message, 'error');
+  }
+}
+$('formTienda').addEventListener('submit', async e => {
+  e.preventDefault();
+  try {
+    await api('POST', '/tiendas', {nombre:$('tNombre').value, descripcion:$('tDescripcion').value || null, localidad:$('tLocalidad').value});
+    aviso('Tienda creada'); await cargarMiTienda(); renderResultados(ultima);
+  } catch (err) { aviso(err.message, 'error'); }
+});
+function cancelarEdicion() {
+  estado.editando = null; $('formProducto').reset();
+  $('tituloProducto').textContent = 'Publicar producto'; $('guardarProducto').textContent = 'Publicar';
+  $('cancelarEdicion').classList.add('oculto');
+}
+function iniciarEdicion(p) {
+  estado.editando = p.id;
+  $('pNombre').value = p.nombre; $('pDescripcion').value = p.descripcion || ''; $('pCategoria').value = p.categoria;
+  $('pPrecio').value = p.precio; $('pStock').value = p.stock;
+  $('tituloProducto').textContent = 'Editar producto'; $('guardarProducto').textContent = 'Guardar cambios';
+  $('cancelarEdicion').classList.remove('oculto'); $('formProducto').scrollIntoView({behavior:'smooth'});
+}
+$('cancelarEdicion').addEventListener('click', cancelarEdicion);
+$('formProducto').addEventListener('submit', async e => {
+  e.preventDefault();
+  const cuerpo = {nombre:$('pNombre').value, descripcion:$('pDescripcion').value || null, categoria:$('pCategoria').value,
+                  precio:Number($('pPrecio').value), stock:parseInt($('pStock').value, 10)};
+  try {
+    if (estado.editando) await api('PUT', '/productos/' + estado.editando, cuerpo);
+    else await api('POST', '/productos', cuerpo);
+    aviso(estado.editando ? 'Producto actualizado' : 'Producto publicado');
+    cancelarEdicion(); buscar(estado.pagina);
+  } catch (err) { aviso(err.message, 'error'); }
+});
+
+// ---------------------------------------------------------------- moderación
+$('formModeracion').addEventListener('submit', async e => {
+  e.preventDefault();
+  try {
+    const r = await api('PATCH', `/productos/${$('mId').value.trim()}/moderacion`,
+      {accion:$('mAccion').value, motivo:$('mMotivo').value || null});
+    aviso(r.estado === 'OCULTO' ? 'Producto oculto' : 'Producto restaurado'); buscar(estado.pagina);
+  } catch (err) { aviso(err.message, 'error'); }
+});
+
+// ---------------------------------------------------------------- arranque
+llenar($('fLocalidad'), LOCALIDADES, 'Todas'); llenar($('fCategoria'), CATEGORIAS, 'Todas');
+llenar($('tLocalidad'), LOCALIDADES); llenar($('pCategoria'), CATEGORIAS);
+cargarSesiones(); buscar(0);
+</script>
+</body>
+</html>
