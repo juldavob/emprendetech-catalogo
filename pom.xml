@@ -58,7 +58,7 @@
         <dependency>
             <groupId>com.nimbusds</groupId>
             <artifactId>nimbus-jose-jwt</artifactId>
-            <version>10.0.2</version>
+            <version>9.41.2</version>
         </dependency>
 
         <!-- Persistencia: PostgreSQL + JPA + Flyway -->
@@ -81,10 +81,10 @@
             <scope>runtime</scope>
         </dependency>
 
-        <!-- Caché de consultas del catálogo (en el MVP, en memoria; en producción, adaptador Redis) -->
+        <!-- Caché distribuida de consultas del catálogo (SAD: Redis gestionado) -->
         <dependency>
-            <groupId>com.github.ben-manes.caffeine</groupId>
-            <artifactId>caffeine</artifactId>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-redis</artifactId>
         </dependency>
 
         <!-- Fronteras entre módulos -->

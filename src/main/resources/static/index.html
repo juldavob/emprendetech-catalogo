@@ -63,15 +63,6 @@
       <label>Categoría <select id="fCategoria"><option value="">Todas</option></select></label>
       <label>Precio mínimo (COP) <input id="fMin" type="number" min="0" step="500"></label>
       <label>Precio máximo (COP) <input id="fMax" type="number" min="0" step="500"></label>
-      <label>Ordenar por
-        <select id="fOrden">
-          <option value="">Automático</option>
-          <option value="RELEVANCIA">Relevancia</option>
-          <option value="RECIENTES">Más recientes</option>
-          <option value="PRECIO_ASC">Precio: menor a mayor</option>
-          <option value="PRECIO_DESC">Precio: mayor a menor</option>
-        </select>
-      </label>
       <div class="barra" style="margin:0"><button type="submit">Buscar</button><button type="button" class="sec" id="limpiar">Limpiar</button></div>
     </form>
     <div class="meta" id="resumen"></div>
@@ -181,7 +172,7 @@ async function buscar(pagina = 0) {
   const p = new URLSearchParams();
   const add = (k, v) => { if (v !== '' && v != null) p.set(k, v); };
   add('q', $('fTexto').value.trim()); add('localidad', $('fLocalidad').value); add('categoria', $('fCategoria').value);
-  add('precioMin', $('fMin').value); add('precioMax', $('fMax').value); add('orden', $('fOrden').value);
+  add('precioMin', $('fMin').value); add('precioMax', $('fMax').value);
   p.set('pagina', pagina); p.set('tamano', estado.tamano);
   try {
     ultima = await api('GET', '/productos?' + p.toString());

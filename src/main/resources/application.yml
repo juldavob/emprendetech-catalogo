@@ -17,11 +17,21 @@ spring:
     enabled: true
     locations: classpath:db/migration
 
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      timeout: 300ms           # la caché no debe volver lenta la API si Redis falla
+      connect-timeout: 300ms
+
 management:
   endpoints:
     web:
       exposure:
         include: health
+  health:
+    redis:
+      enabled: false           # Redis es una optimización: su caída no debe sacar la instancia del balanceador
 
 emprendetech:
   seguridad:
@@ -29,4 +39,3 @@ emprendetech:
   catalogo:
     cache:
       ttl-segundos: 60
-      max-entradas: 1000

@@ -1,90 +1,84 @@
 # EmprendeTech – MVP del módulo Catálogo
 
 ## 1. Propósito
-Producto Mínimo Viable del componente **Catálogo** de EmprendeTech (Reto 4). Evidencia el estilo
-arquitectónico del SAD: **monolito modular + Clean Architecture**. Cubre **RF2** (CRUD de productos por
-emprendedor) y **RF3** (búsqueda y filtro por texto, localidad, categoría y precio), más tienda virtual,
-inventario y moderación, que el SAD §2.2 asigna a este componente.
+Producto Mínimo Viable del componente **Catálogo** de EmprendeTech (Reto 4), alineado con el documento
+**SAD-EMPTECH-001 v1.0**. Evidencia el estilo del SAD (§3.3): **monolito modular + Clean Architecture**, con las
+cuatro capas de la Tabla 4 y la fachada pública `CatalogoFacade`. Cubre **RF2** (CRUD de productos por emprendedor),
+**RF3** (búsqueda y filtro por texto, localidad, categoría y precio), la tienda virtual (CU-02), la moderación
+(CU-10) y el contrato de inventario que consume Pedidos (reserva, confirmación y liberación de stock).
 
 ## 2. Cómo ejecutar
-Requisitos: JDK 21+ (probado en diseño para 21 y 25), Maven 3.9+, Docker.
+Requisitos: JDK 21+, Maven 3.9+ y Docker.
 
 ```bash
-docker compose up -d                 # PostgreSQL 17
-mvn spring-boot:run                  # perfil "dev" por defecto: Flyway + datos semilla
+docker compose up -d        # PostgreSQL 17 y Redis 7
+mvn spring-boot:run         # perfil "dev" por defecto: Flyway + datos semilla + tokens de demostración
 ```
-Abra **http://localhost:8080/** para usar la interfaz web (búsqueda con filtros, panel del emprendedor y
-moderación). Al arrancar también se imprimen **tokens JWT de demostración**; la interfaz los toma de
-`GET /dev/tokens` (solo perfil `dev`) y los usa en el selector «Sesión de demostración».
+Abra **http://localhost:8080/** (interfaz web básica). Los tokens de demostración se imprimen al arrancar y la
+interfaz los toma de `GET /dev/tokens` (solo perfil `dev`).
 Pruebas: `mvn test` (las de integración usan Testcontainers y se omiten si no hay Docker).
 
 ```bash
-# Búsqueda pública (texto, localidad, categoría, precio, orden, paginación)
 curl "http://localhost:8080/api/v1/catalogo/productos?q=miel"
-curl "http://localhost:8080/api/v1/catalogo/productos?localidad=LA_CANDELARIA&orden=PRECIO_DESC"
-curl "http://localhost:8080/api/v1/catalogo/productos?categoria=ALIMENTOS&precioMin=10000&precioMax=30000"
-
-# Crear producto (token EMPRENDEDOR)
-curl -X POST http://localhost:8080/api/v1/catalogo/productos \
-  -H "Authorization: Bearer $TOKEN_EMPRENDEDOR_1" -H "Content-Type: application/json" \
-  -d '{"nombre":"Panela orgánica","descripcion":"Bloque 500 g","categoria":"ALIMENTOS","precio":7500,"stock":40}'
-
-# Moderar (token ADMIN)
-curl -X PATCH http://localhost:8080/api/v1/catalogo/productos/<id>/moderacion \
-  -H "Authorization: Bearer $TOKEN_ADMIN" -H "Content-Type: application/json" \
-  -d '{"accion":"OCULTAR","motivo":"Contenido inapropiado"}'
+curl "http://localhost:8080/api/v1/catalogo/productos?localidad=LA_CANDELARIA&categoria=hogar"
+curl "http://localhost:8080/api/v1/catalogo/productos?categoria=alimentos&precioMin=10000&precioMax=30000"
 ```
 
-| Método y ruta | Rol | RF |
+| Método y ruta | Rol | Caso de uso del SAD |
 |---|---|---|
-| `POST /api/v1/catalogo/tiendas` · `GET .../tiendas/mia` · `GET .../tiendas/{id}` | EMPRENDEDOR · EMPRENDEDOR · público | tienda |
-| `GET .../productos` (filtros) · `GET .../productos/{id}` | público | RF3 |
-| `POST/PUT/DELETE .../productos[/{id}]` | EMPRENDEDOR (dueño) | RF2 |
-| `PATCH .../productos/{id}/moderacion` | ADMIN | moderación |
+| `GET /api/v1/catalogo/productos` (q, localidad, categoria, precioMin, precioMax, pagina, tamano) · `GET .../productos/{id}` | público | CU-03 (RF3) |
+| `POST/PUT/DELETE .../productos[/{id}]` | EMPRENDEDOR (dueño) | CU-02 (RF2) |
+| `POST .../tiendas` · `GET .../tiendas/mia` · `GET .../tiendas/{id}` | EMPRENDEDOR · EMPRENDEDOR · público | CU-02 |
+| `PATCH .../productos/{id}/moderacion` | ADMIN | CU-10 |
 
-Fachada para otros módulos: `CatalogoFacade` (`consultarProducto`, `reservarStock`, `liberarStock`).
+**Fachada** (`CatalogoFacade`, API para Pedidos): `consultarProducto(id)`, `reservarStock(pedidoId, items)`,
+`confirmarStock(pedidoId)` y `liberarStock(pedidoId)`.
 
-## 3. Estructura (SAD §1.1 y §2)
-```
-com.emprendetech
-├── shared/                 kernel compartido (Dinero, Localidad)
-├── api/                    capa REST transversal: JWT stateless, roles, tokens de desarrollo
-resources/static/index.html  interfaz web básica (HTML + JS, sin build) que consume la API
-└── catalogo/
-    ├── CatalogoFacade, ProductoVista   ← única API pública del módulo
-    ├── domain/             entidades y reglas, sin frameworks
-    ├── application/        casos de uso + puertos (interfaces)
-    ├── infrastructure/     adaptadores: JPA/PostgreSQL, caché Caffeine, estrategias de orden
-    └── presentation/       controlador REST, DTOs, manejo de errores
-```
-La regla de dependencia y las fronteras entre módulos se verifican en `ArquitecturaTest`
-(ArchUnit + Spring Modulith).
+## 3. Correspondencia con el SAD
+**Capas (Tabla 4 y §8)** – paquetes en `com.emprendetech.catalogo`:
 
-## 4. Patrones de diseño y relación con el SAD
-| Patrón | Dónde | Relación con el SAD |
+| Capa | Regla del SAD | Contenido en el MVP |
 |---|---|---|
-| **Adapter** (estructural) | `infrastructure/`: `*RepositorioAdapter`, `BusquedaProductosAdapter`, `CaffeineBusquedaCacheAdapter` implementan los puertos de `application/puerto` | SAD §1.1 (infraestructura = adaptadores que implementan puertos) y §3.2 (Adapter). Cambiar JPA o Caffeine por Redis no toca dominio ni casos de uso. |
-| **Strategy** (comportamiento) | `EstrategiaOrdenamiento` con `OrdenRelevancia`, `OrdenRecientes`, `OrdenPrecioAscendente`, `OrdenPrecioDescendente` | SAD §3.2 (Strategy: Abierto/Cerrado, sin condicionales, RNF5). Un nuevo orden = una clase nueva. |
+| `presentacion` | Depende solo de Aplicación y DTOs | `CatalogoController`, DTOs de entrada, `ManejadorErrores`, filtros de seguridad (`seguridad/`) |
+| `aplicacion` | Orquesta transacciones y casos de uso; depende solo de Dominio; expone puertos y fachadas | `servicio/` (casos de uso, Java puro), `puerto/` (`*Repositorio`, `Transaccion`, caché y búsqueda), `dto/`, `fachada/CatalogoFacade` |
+| `dominio` | Java puro, sin frameworks ni otras capas | `Producto`, `Tienda`, `ReservaStock` y reglas |
+| `infraestructura` | Implementa los puertos por inversión de dependencias | JPA/PostgreSQL + Flyway, cliente Redis, `TransaccionSpring`, `CatalogoConfig` |
+| `shared_kernel` | Transversal | `Dinero`, `Localidad` y excepciones de negocio |
 
-> **Supuesto técnico (a resolver en el SAD):** el SAD §3.3 indica que Catálogo *no* usa patrones GoF y
-> ubica Strategy/Adapter/State en Pagos y Pedidos, pero el Reto §7 exige ≥ 2 patrones del SAD en el PMV y
-> esos módulos están fuera del alcance. Se aplican Adapter (respaldado por §1.1) y Strategy (ordenamiento).
-> Antes de entregar, añada a §3.2 una fila «Catálogo: Adapter + Strategy» (y quite la fila de §3.3 o
-> ajuste su texto) para que SAD y código coincidan.
+Las reglas se verifican en `ArquitecturaTest` (ArchUnit para las capas; Spring Modulith para las fronteras entre
+módulos). La fachada es la única interfaz expuesta (`@NamedInterface` en `aplicacion/fachada`).
 
-## 5. Trazabilidad con RNF
-RNF3: índice GIN + `tsvector` en PostgreSQL y caché de consultas · RNF2: aplicación sin estado, caché,
-reserva de stock atómica (sin sobreventa) · RNF5: puertos/adaptadores + Strategy · RNF6: JWT firmado, roles,
-parámetros SQL enlazados · RNF4: un solo artefacto + PostgreSQL · RNF1/RNF7: sin estado, escalable horizontalmente.
+**Realizaciones de casos de uso (Tabla 3 y §6)**
+- *Búsqueda filtrada*: consulta primero en **Redis**; ante *cache miss* ejecuta la **búsqueda de texto completo
+  indexada** en el esquema `catalogo` (GIN sobre `tsvector`). Las escrituras invalidan la caché tras confirmar la
+  transacción; si Redis falla, la búsqueda sigue contra PostgreSQL.
+- *Checkout / pago*: Pedidos llama a la fachada para **reservar** el stock (todo o nada, con `UPDATE` atómico, sin
+  sobreventa); al `PagoAprobado` se **confirma** y si el pago se rechaza se **libera**. Ambas operaciones son idempotentes
+  (la pasarela puede reintentar el webhook).
 
-## 6. Supuestos y límites del MVP
-- La interfaz es deliberadamente simple (un solo `index.html`, sin framework): su función es demostrar el flujo
-  completo del Catálogo sobre la API; no es parte del SAD y puede reemplazarse sin tocar el backend.
-- Identidad (RF1) no está implementada: el token trae `sub` (UUID) y `rol`; en `dev` se generan tokens de demostración.
-  En producción defina `SPRING_PROFILES_ACTIVE=prod` y `JWT_SECRET` (≥ 32 caracteres); sin semilla ni tokens.
-- Un emprendedor tiene una sola tienda; la localidad de un producto es la de su tienda.
-- Lectura del catálogo pública; un producto oculto responde 404 al público.
-- Caché en memoria por instancia (TTL 60 s, se vacía en cada escritura); en producción, adaptador Redis.
-- `PUT` fija el stock de forma absoluta (último en escribir gana); reservar/liberar sí son atómicos.
-- Eventos de dominio (`Reseñas → Catálogo`, promedio de calificaciones) y Outbox quedan fuera del alcance.
-- Versiones: Spring Boot 4.1.2, Spring Modulith 2.1.0, Java 21 (verificadas en noviembre de 2026; revise parches).
+**Trazabilidad con RNF (Tabla 1)**: RNF1/RNF2/RNF7 sin estado, caché distribuida y reserva atómica · RNF3 índices +
+texto completo + Redis · RNF4 un solo artefacto, sin motores externos · RNF5 puertos/adaptadores, capas verificadas
+automáticamente y complejidad baja · RNF6 JWT firmado, RBAC y consultas parametrizadas.
+
+## 4. Patrones de diseño (importante)
+El SAD (§3.2, §5.2 y Tabla 6) establece que **Catálogo no incorpora patrones GoF** y que Strategy, Adapter y State se
+aplican solo en Pagos y Pedidos. Este MVP respeta esa decisión: los "adaptadores" de `infraestructura` son la
+inversión de dependencias de Clean Architecture descrita en la Tabla 4, no un patrón GoF añadido.
+> **Atención:** el Reto (§7) pide que el PMV implemente al menos 2 patrones justificados en el SAD. Con el alcance
+> limitado al Catálogo, este requisito queda sin evidenciar. Conviene acordar con el docente cómo se acredita
+> (p. ej., con el módulo Pagos de otro integrante del equipo).
+
+## 5. Supuestos técnicos
+- `reservarStock` recibe el `pedidoId` además de los ítems: el SAD usa `confirmarStock(pedidoId)`, así que la reserva
+  debe quedar identificada por pedido.
+- Las excepciones de negocio están en `shared_kernel` para que la presentación las traduzca a HTTP sin conocer el dominio.
+- Los filtros de seguridad (Spring Security) viven en `presentacion/seguridad`, según la Tabla 4. Identidad (RF1) no está
+  en el alcance: el token trae `sub` (UUID) y `rol`. En `dev` se emiten tokens de demostración; en producción defina
+  `SPRING_PROFILES_ACTIVE=prod` y `JWT_SECRET` (≥ 32 caracteres).
+- Un emprendedor tiene una sola tienda; la localidad de un producto es la de su tienda. La lectura del catálogo es pública
+  y un producto oculto por moderación responde 404.
+- La capa de Aplicación no usa anotaciones de Spring; la transacción se orquesta mediante el puerto `Transaccion`.
+- Fuera del alcance de este MVP: imágenes en CDN, eventos entre módulos (`ReseñaCreada`, promedio de calificaciones),
+  y los demás módulos (Identidad, Pedidos, Pagos, Reseñas, Reportes).
+- `PUT` fija el stock de forma absoluta (gana la última escritura); reservar y liberar sí son atómicos.
+- Versiones verificadas en noviembre de 2026: Spring Boot 4.1.2, Spring Modulith 2.1.0, Java 21 (compatible con 25).

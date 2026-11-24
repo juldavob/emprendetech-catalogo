@@ -9,8 +9,8 @@ import org.junit.jupiter.api.Test;
 import org.springframework.modulith.core.ApplicationModules;
 
 /**
- * Verificación automática de la regla de dependencia (SAD §1.1) y de las fronteras entre módulos
- * (SAD §2.3, regla 1).
+ * Verificación automática de las reglas de frontera del SAD: Tabla 4 (dependencias por capa),
+ * §8.1 (regla de dependencia hacia el Dominio) y §5.1 (acceso entre módulos solo por fachadas).
  */
 class ArquitecturaTest {
 
@@ -23,35 +23,52 @@ class ArquitecturaTest {
         ApplicationModules.of(EmprendeTechApplication.class).verify();
     }
 
+    /** Dominio: "núcleo puro en Java sin dependencias de frameworks ni de otras capas". */
     @Test
-    void elDominioNoDependeDeFrameworksNiDeCapasExternas() {
-        noClasses().that().resideInAPackage("..catalogo.domain..")
+    void elDominioNoDependeDeFrameworksNiDeOtrasCapas() {
+        noClasses().that().resideInAPackage("..catalogo.dominio..")
                 .should().dependOnClassesThat().resideInAnyPackage(
                         "org.springframework..", "jakarta..", "javax..", "com.nimbusds..",
-                        "..catalogo.application..", "..catalogo.infrastructure..", "..catalogo.presentation..")
+                        "..catalogo.aplicacion..", "..catalogo.infraestructura..", "..catalogo.presentacion..")
                 .check(CLASES);
     }
 
+    /** Aplicación: "depende solo de Dominio y expone puertos" (Java puro, sin Spring ni JPA). */
     @Test
-    void laAplicacionNoDependeDeInfraestructuraNiDePresentacionNiDeJpa() {
-        noClasses().that().resideInAPackage("..catalogo.application..")
+    void laAplicacionSoloDependeDelDominioYDelKernel() {
+        noClasses().that().resideInAPackage("..catalogo.aplicacion..")
                 .should().dependOnClassesThat().resideInAnyPackage(
-                        "..catalogo.infrastructure..", "..catalogo.presentation..", "jakarta.persistence..")
+                        "..catalogo.infraestructura..", "..catalogo.presentacion..",
+                        "jakarta..", "javax..", "com.nimbusds..",
+                        "org.springframework.beans..", "org.springframework.stereotype..",
+                        "org.springframework.transaction..", "org.springframework.context..",
+                        "org.springframework.data..", "org.springframework.web..",
+                        "org.springframework.http..", "org.springframework.security..")
                 .check(CLASES);
     }
 
+    /** Presentación: "depende únicamente de Aplicación y DTOs de entrada/salida". */
+    @Test
+    void laPresentacionNoConoceElDominioNiLaInfraestructura() {
+        noClasses().that().resideInAPackage("..catalogo.presentacion..")
+                .should().dependOnClassesThat().resideInAnyPackage(
+                        "..catalogo.dominio..", "..catalogo.infraestructura..")
+                .check(CLASES);
+    }
+
+    /** Infraestructura: implementa los puertos de Aplicación por inversión de dependencias. */
     @Test
     void laInfraestructuraNoDependeDeLaPresentacion() {
-        noClasses().that().resideInAPackage("..catalogo.infrastructure..")
-                .should().dependOnClassesThat().resideInAPackage("..catalogo.presentation..")
+        noClasses().that().resideInAPackage("..catalogo.infraestructura..")
+                .should().dependOnClassesThat().resideInAPackage("..catalogo.presentacion..")
                 .check(CLASES);
     }
 
     @Test
     void elKernelCompartidoNoDependeDeFrameworksNiDeModulos() {
-        noClasses().that().resideInAPackage("com.emprendetech.shared..")
+        noClasses().that().resideInAPackage("com.emprendetech.shared_kernel..")
                 .should().dependOnClassesThat().resideInAnyPackage(
-                        "org.springframework..", "jakarta..", "com.emprendetech.catalogo..", "com.emprendetech.api..")
+                        "org.springframework..", "jakarta..", "com.emprendetech.catalogo..")
                 .check(CLASES);
     }
 }
